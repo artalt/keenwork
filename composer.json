@@ -1,0 +1,26 @@
+{
+    "name": "snegprog/keenman",
+    "description": "Modern PHP framework for building REST APIs",
+    "type": "library",
+  	"license": "MIT",
+    "keywords": ["php", "api", "framework", "rest-api", "slimphp", "workerman", "psr-7", "psr-15", "psr-17", "psr-18"],
+    "homepage": "https://github.com/snegprog/keenman",
+    "authors": [{
+   	    "name": "Serge Negrey",
+        "email": "snegprog@gmail.com"
+    }],
+    "require": {
+        "php": "^7.4",
+        "ext-yaml": "*",
+        "ext-ev": "*",
+        "ext-event": "*",
+        "workerman/workerman": "^4.0",
+        "slim/slim": "^4.5",
+        "php-di/php-di": "^6.2",
+        "guzzlehttp/psr7": "^1.6",
+        "slim/psr7": "^1.2"
+    },
+    "autoload": {
+        "psr-4": { "Keenwork\\": "src/" }
+    }
+}

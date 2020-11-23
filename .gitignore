@@ -1,0 +1,7 @@
+.idea/
+vendor/
+composer.lock
+public/
+src/Controller/
+src/Test.php
+log/

@@ -1,17 +1,6 @@
-# Comet-sneg
+# Keenwork
 
-Comet is a modern PHP framework for building fast REST APIs and microservices. 
-
-## Superpowers
-
-- Blazing fast with 100K HTTP requests per second and ~0.1 ms latency on commodity cloud hardware 
-- Really cross-platform, works like a charm on Linux, MacOS and Windows 7/8/10
-- Based on bullet-proof components from Guzzle, SlimPHP and Workerman
-- Extendable with Composer: use ORM and templating engine of your choice
-- PSR compliant with native implementations of all PSR-7 interfaces
-- Has its own HTTP client with simple interface
-
-## Comet = Guzzle + SlimPHP + Workerman + magic
+## Keenwork = Guzzle + SlimPHP + Workerman
 
 Comet gets all superpowers from Guzzle, Slim and Workerman components as well as adds its own magic.
 
@@ -21,7 +10,7 @@ Comet gets all superpowers from Guzzle, Slim and Workerman components as well as
 
 [Workerman](https://github.com/walkor/Workerman) is an asynchronous event-driven framework to build fast and scalable network applications. 
 
-Comet allows you natively use all the methods of Slim: http://www.slimframework.com/docs/v4/
+Keenwork allows you natively use all the methods of Slim: http://www.slimframework.com/docs/v4/
 
 ## Basics
 
@@ -43,7 +32,7 @@ Create single app.php file at project root folder with content:
 <?php
 require_once __DIR__ . '/vendor/autoload.php';
 
-$app = new Comet\Keenman();
+$app = new Keenwork\Keenman();
 
 $app->get('/hello', 
     function ($request, $response) {              

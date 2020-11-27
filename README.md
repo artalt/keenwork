@@ -1,6 +1,6 @@
 # Keenwork
 
-## Keenwork = Guzzle + SlimPHP + Workerman
+## Keenwork = Guzzle + SlimPHP + PHP DI + Workerman + minimum magic
 
 Comet gets all superpowers from Guzzle, Slim and Workerman components as well as adds its own magic.
 

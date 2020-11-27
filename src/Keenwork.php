@@ -17,19 +17,20 @@ use Workerman\Protocols\Http\Request as WorkermanRequest;
 use Workerman\Protocols\Http\Response as WorkermanResponse;
 use Slim\App;
 use Rakit\Validation\Validator;
+use DI\Container;
 
 class Keenwork
 {
     /**
      * Version Keenwork
      */
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.2.0';
 
     /**
      * WEB Slim App
      * @var App $slim
      */
-    private App $slim;
+    private ?App $slim;
 
     /**
      * host web server
@@ -47,7 +48,7 @@ class Keenwork
      * enable|disable debag mode for workerman
      * @var bool
      */
-    private bool $debug;
+    private bool $debugHttp;
 
     /**
      * logger PSR-3 for Slim
@@ -59,13 +60,13 @@ class Keenwork
      * container PSR-11 for Slim
      * @var ContainerInterface|null
      */
-    private ?ContainerInterface $container;
+    private ?ContainerInterface $containerHttp;
 
     /**
      * callable starts when starts worker
-     * @var callable
+     * @var callable|null
      */
-    private $init;
+    private $callableAtStartHttp;
 
     /**
      * Number of workers workerman
@@ -73,9 +74,38 @@ class Keenwork
      */
     private int $workersHttp;
 
+    /**
+     * working http, flag
+     * @var bool
+     */
+    private bool $workingHttp;
+
+    /**
+     * data initialization http, flag
+     * @var bool
+     */
+    private bool $dataInitHttp;
+
     //TODO: think
-    private static $config = [];
     private static $jobs = [];
+
+    /**
+     * Keenwork constructor.
+     */
+    public function __construct(LoggerInterface $logger = null)
+    {
+        $this->slim = null;
+        $this->hostHttp = '';
+        $this->portHttp = 0;
+        $this->debugHttp = false;
+        $this->logger = $logger;
+        $this->containerHttp = null;
+        $this->callableAtStartHttp = null;
+        $this->workersHttp = 0;
+        $this->workingHttp = false;
+        $this->dataInitHttp = false;
+    }
+
 
     /**
      * Init http server
@@ -83,6 +113,15 @@ class Keenwork
      */
     public function initHttp(array $config = []): void
     {
+        if($this->isDataInitHttp()) {
+            echo "You can't initialize data http twice\n";
+            return;
+        }
+        if($this->isWorkingHttp()) {
+            echo "You can't initialize data http while the server is running\n";
+            return;
+        }
+
         $validator = new Validator();
         $validation = $validator->make($config, [
             'host' => 'ip',
@@ -103,32 +142,32 @@ class Keenwork
 
         $this->setHost($config['host'] ?? '0.0.0.0');
         $this->setPort($config['port'] ?? 8080);
-        $this->setDebug($config['debug'] ?? false);
-        $this->setWorkers($config['workers'] ?? ((int) shell_exec('nproc')*4));
-        $this->setLogger($config['logger'] ?? null);
-        $this->setContainer($config['container'] ?? null);
+        $this->setDebugHttp($config['debug'] ?? false);
+        $this->setWorkersHttp($config['workers'] ?? ((int) shell_exec('nproc')*4));
 
+        $this->setContainerHttp(new Container());
         $provider = new Psr17FactoryProvider();
         $provider::setFactories([CometPsr17Factory::class]);
         AppFactory::setPsr17FactoryProvider($provider);
-
-        $this->setSlim(AppFactory::create(null, $this->container));
+        $this->setSlim(AppFactory::create(null, $this->getContainerHttp()));
         $this->getSlim()->add(new JsonBodyParserMiddleware());
+
+        $this->setDataInitHttp(true);
     }
 
     /**
      * Return config param value or the config at whole
      *
-     * @param string $key
+     * @return array - config http data
      */
-    public function getConfigHttp(string $key = null) {
-        if (!$key) {
-    	    return self::$config;
-        } else if (array_key_exists($key, self::$config)) {
-    	    return self::$config[$key];
-        } else {
-    	    return null;
-        }
+    public function getConfigsHttp(): array
+    {
+        return [
+            'host' => $this->getHostHttp(),
+            'port' => $this->getPortHttp(),
+            'debug' => $this->isDebugHttp(),
+            'workers' => $this->getWorkersHttp(),
+        ];
     }
 
     /**
@@ -136,9 +175,9 @@ class Keenwork
      *
      * @param callable $init
      */
-    public function init (callable $init)
+    public function callableAtStartHttp(callable $init): void
     {
-        $this->init = $init;
+        $this->callableAtStartHttp = $init;
     }
 
     /**
@@ -164,16 +203,120 @@ class Keenwork
     }
 
     /**
-     * Magic call to any of the Slim App methods like add, addMidleware, handle, run, etc...
-     * See the full list of available methods: https://github.com/slimphp/Slim/blob/4.x/Slim/App.php
-     *
-     * @param string $name
-     * @param array $args
-     * @return mixed
+     * Run Keenwork server
      */
-    public function __call (string $name, array $args)
+    public function runAll()
     {
-        return $this->slim->$name(...$args);
+        // Write worker output to log file if exists
+        if (null !== $this->getLogger()) {
+            foreach($this->getLogger()->getHandlers() as $handler) {
+                if ($handler->getUrl()) {
+                    Worker::$stdoutFile = $handler->getUrl();
+                    break;
+                }
+            }
+        }
+
+        // FIXME We should use real free random port not fixed 65432
+        // Init JOB workers
+//        foreach (self::$jobs as $job) {
+//	        $w = new Worker('text://' . $this->host . ':' . 65432);
+//    	    $w->count = $job['workers'];
+//        	$w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
+//        	$w->onWorkerStart = function() use ($job) {
+//      	        if ($this->init)
+//					call_user_func($this->init);
+//            	Timer::add($job['interval'], $job['job']);
+//        	};
+//        }
+
+        // Init HTTP workers
+        $worker = new Worker('http://' . $this->hostHttp . ':' . $this->portHttp);
+        $worker->count = $this->workersHttp;
+        $worker->name = 'Keenwork v' . self::VERSION;
+
+        if ($this->callableAtStartHttp) {
+            $worker->onWorkerStart = $this->callableAtStartHttp;
+        }
+
+        /** Main Http */
+        $worker->onMessage = function($connection, WorkermanRequest $request)
+        {
+            try {
+                $response = $this->_handle($request);
+                $connection->send($response);
+            } catch(HttpNotFoundException $error) {
+                $connection->send(new WorkermanResponse(404));
+            } catch(\Throwable $error) {
+                if ($this->isDebugHttp()) {
+                    echo "\n[ERR] " . $error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage();
+                }
+                if (null !== $this->getLogger()) {
+                    $this->getLogger()->error($error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage());
+                }
+                $connection->send(new WorkermanResponse(500));
+            }
+        };
+
+        $this->setWorkingHttp(true);
+
+        Worker::runAll();
+    }
+
+    /**
+     * @return string
+     */
+    public function getHostHttp(): string
+    {
+        return $this->hostHttp;
+    }
+
+    /**
+     * @return int
+     */
+    public function getPortHttp(): int
+    {
+        return $this->portHttp;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDebugHttp(): bool
+    {
+        return $this->debugHttp;
+    }
+
+    /**
+     * @return LoggerInterface|null
+     */
+    public function getLogger(): ?LoggerInterface
+    {
+        return $this->logger;
+    }
+
+    /**
+     * @return int
+     */
+    public function getWorkersHttp(): int
+    {
+        return $this->workersHttp;
+    }
+
+    /**
+     * @return array
+     */
+    public static function getJobs(): array
+    {
+        return self::$jobs;
+    }
+
+    /**
+     * @return App|null
+     */
+    public function getSlim(): ?App
+    {
+        return $this->slim;
     }
 
     /**
@@ -184,11 +327,11 @@ class Keenwork
      */
     private function _handle(WorkermanRequest $request)
     {
-    	if ($request->queryString()) {
+        if ($request->queryString()) {
             parse_str($request->queryString(), $queryParams);
-    	} else {
+        } else {
             $queryParams = [];
-    	}
+        }
 
         $req = new Request(
             $request->method(),
@@ -222,146 +365,6 @@ class Keenwork
     }
 
     /**
-     * Run Keenwork server
-     */
-    public function run()
-    {
-        // Write worker output to log file if exists
-        if (null !== $this->getLogger()) {
-            foreach($this->getLogger()->getHandlers() as $handler) {
-                if ($handler->getUrl()) {
-                    Worker::$stdoutFile = $handler->getUrl();
-                    break;
-                }
-            }
-        }
-
-        // Init HTTP workers
-        $worker = new Worker('http://' . $this->hostHttp . ':' . $this->portHttp);
-        $worker->count = $this->workersHttp;
-        $worker->name = 'Keenwork v' . self::VERSION;
-
-        if ($this->init) {
-            $worker->onWorkerStart = $this->init;
-        }
-
-        // FIXME We should use real free random port not fixed 65432
-        // Init JOB workers
-//        foreach (self::$jobs as $job) {
-//	        $w = new Worker('text://' . $this->host . ':' . 65432);
-//    	    $w->count = $job['workers'];
-//        	$w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
-//        	$w->onWorkerStart = function() use ($job) {
-//      	        if ($this->init)
-//					call_user_func($this->init);
-//            	Timer::add($job['interval'], $job['job']);
-//        	};
-//        }
-
-        //TODO: think
-        /** Main Loop */
-        $worker->onMessage = function($connection, WorkermanRequest $request)
-        {
-            try {
-                $response = $this->_handle($request);
-                $connection->send($response);
-            } catch(HttpNotFoundException $error) {
-                $connection->send(new WorkermanResponse(404));
-            } catch(\Throwable $error) {
-                if ($this->isDebug()) {
-                    echo "\n[ERR] " . $error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage();
-                }
-                if (null !== $this->getLogger()) {
-                    $this->getLogger()->error($error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage());
-                }
-                $connection->send(new WorkermanResponse(500));
-            }
-        };
-
-        Worker::runAll();
-    }
-
-    /**
-     * @return App
-     */
-    public function getSlim(): App
-    {
-        return $this->slim;
-    }
-
-    /**
-     * @return string
-     */
-    public function getHostHttp(): string
-    {
-        return $this->hostHttp;
-    }
-
-    /**
-     * @return int
-     */
-    public function getPortHttp(): int
-    {
-        return $this->portHttp;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isDebug(): bool
-    {
-        return $this->debug;
-    }
-
-    /**
-     * @return LoggerInterface|null
-     */
-    public function getLogger(): ?LoggerInterface
-    {
-        return $this->logger;
-    }
-
-    /**
-     * @return ContainerInterface|null
-     */
-    public function getContainer(): ?ContainerInterface
-    {
-        return $this->container;
-    }
-
-    /**
-     * @return mixed
-     */
-    public function getInit(): callable
-    {
-        return $this->init;
-    }
-
-    /**
-     * @return int
-     */
-    public function getWorkersHttp(): int
-    {
-        return $this->workersHttp;
-    }
-
-    /**
-     * @return array
-     */
-    public static function getConfig(): array
-    {
-        return self::$config;
-    }
-
-    /**
-     * @return array
-     */
-    public static function getJobs(): array
-    {
-        return self::$jobs;
-    }
-
-    /**
      * @param App $slim
      */
     private function setSlim(App $slim): void
@@ -388,9 +391,9 @@ class Keenwork
     /**
      * @param bool $debug
      */
-    private function setDebug(bool $debug): void
+    private function setDebugHttp(bool $debug): void
     {
-        $this->debug = $debug;
+        $this->debugHttp = $debug;
     }
 
     /**
@@ -402,35 +405,27 @@ class Keenwork
     }
 
     /**
-     * @param ContainerInterface|null $container
+     * @return ContainerInterface|null
      */
-    private function setContainer(?ContainerInterface $container): void
+    private function getContainerHttp(): ?ContainerInterface
     {
-        $this->container = $container;
+        return $this->containerHttp;
     }
 
     /**
-     * @param mixed $init
+     * @param ContainerInterface $container
      */
-    private function setInit($init): void
+    private function setContainerHttp(ContainerInterface $container): void
     {
-        $this->init = $init;
+        $this->containerHttp = $container;
     }
 
     /**
      * @param int $workers
      */
-    private function setWorkers(int $workers): void
+    private function setWorkersHttp(int $workers): void
     {
         $this->workersHttp = $workers;
-    }
-
-    /**
-     * @param array $config
-     */
-    private static function setConfig(array $config): void
-    {
-        self::$config = $config;
     }
 
     /**
@@ -440,4 +435,38 @@ class Keenwork
     {
         self::$jobs = $jobs;
     }
+
+    /**
+     * @return bool
+     */
+    private function isWorkingHttp(): bool
+    {
+        return $this->workingHttp;
+    }
+
+    /**
+     * @param bool $workingHttp
+     */
+    private function setWorkingHttp(bool $workingHttp): void
+    {
+        $this->workingHttp = $workingHttp;
+    }
+
+    /**
+     * @return bool
+     */
+    private function isDataInitHttp(): bool
+    {
+        return $this->dataInitHttp;
+    }
+
+    /**
+     * @param bool $dataInitHttp
+     */
+    private function setDataInitHttp(bool $dataInitHttp): void
+    {
+        $this->dataInitHttp = $dataInitHttp;
+    }
+
+
 }

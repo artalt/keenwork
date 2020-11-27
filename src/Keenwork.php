@@ -16,60 +16,104 @@ use Workerman\Worker;
 use Workerman\Protocols\Http\Request as WorkermanRequest;
 use Workerman\Protocols\Http\Response as WorkermanResponse;
 use Slim\App;
+use Rakit\Validation\Validator;
 
 class Keenwork
 {
+    /**
+     * Version Keenwork
+     */
     public const VERSION = '0.1.0';
 
     /**
-     * @property App $app
+     * WEB Slim App
+     * @var App $slim
      */
-    private static App $app;
+    private App $slim;
 
-    // TODO Store set up variables within single Config struct
-    private static $host;
-    private static $port;    
-    private static $logger;
-    private static $status;
-    private static $debug;
-    private static $init;
-    private static $container;
+    /**
+     * host web server
+     * @var string
+     */
+    private string $hostHttp;
 
+    /**
+     * port web server
+     * @var int
+     */
+    private int $portHttp;
+
+    /**
+     * enable|disable debag mode for workerman
+     * @var bool
+     */
+    private bool $debug;
+
+    /**
+     * logger PSR-3 for Slim
+     * @var LoggerInterface|null
+     */
+    private ?LoggerInterface $logger;
+
+    /**
+     * container PSR-11 for Slim
+     * @var ContainerInterface|null
+     */
+    private ?ContainerInterface $container;
+
+    /**
+     * callable starts when starts worker
+     * @var callable
+     */
+    private $init;
+
+    /**
+     * Number of workers workerman
+     * @var int
+     */
+    private int $workersHttp;
+
+    //TODO: think
     private static $config = [];
     private static $jobs = [];
 
-    public function __construct(array $config = null)
+    /**
+     * Init http server
+     * @param array|null $config
+     */
+    public function initHttp(array $config = []): void
     {
-        self::$host = $config['host'] ?? '0.0.0.0';
-        self::$port = $config['port'] ?? 8080;        
-        self::$debug = $config['debug'] ?? false;
-        self::$logger = $config['logger'] ?? null;
-        self::$container = $config['container'] ?? null;
-
-        if(null !== self::$logger && !(self::$logger instanceof LoggerInterface)) {
-            throw new \InvalidArgumentException('ERROR: logger does not belong to the LoggerInterface');
-        }
-        if(null !== self::$container && !(self::$container instanceof ContainerInterface)) {
-            throw new \InvalidArgumentException('ERROR: container does not belong to the ContainerInterface');
-        }
-
-        self::$config['workers'] = $config['workers'] ?? (int) shell_exec('nproc') * 4;
-
-        // Some more preparations for Windows hosts
-        if (DIRECTORY_SEPARATOR === '\\') {
-            if (self::$host === '0.0.0.0') {
-                self::$host = '127.0.0.1';
+        $validator = new Validator();
+        $validation = $validator->make($config, [
+            'host' => 'ip',
+            'port' => 'integer',
+            'workers' => 'integer',
+            'debug' => 'boolean',
+        ]);
+        $validation->validate();
+        if ($validation->fails()) {
+            $stringErrors = '[';
+            foreach($validation->errors()->toArray() as $key => $error) {
+                $stringErrors .= ' ' .$key . ' ';
             }
-            self::$config['workers'] = 1; // Windows can't hadnle multiple processes with PHP
+            $stringErrors .= ']';
+
+            throw new \InvalidArgumentException('ERROR: initHttp(): invalid argument(s): ' . $stringErrors . '.');
         }
 
-        // Using Keenwork PSR-7 and PSR-17
+        $this->setHost($config['host'] ?? '0.0.0.0');
+        $this->setPort($config['port'] ?? 8080);
+        $this->setDebug($config['debug'] ?? false);
+        $this->setWorkers($config['workers'] ?? ((int) shell_exec('nproc')*4));
+        $this->setLogger($config['logger'] ?? null);
+        $this->setContainer($config['container'] ?? null);
+
         $provider = new Psr17FactoryProvider();
-        $provider::setFactories([ CometPsr17Factory::class ]);
+        $provider::setFactories([CometPsr17Factory::class]);
         AppFactory::setPsr17FactoryProvider($provider);
 
-        self::$app = AppFactory::create(null, self::$container);
-        self::$app->add(new JsonBodyParserMiddleware());
+        $this->setSlim(AppFactory::create(null, $this->container));
+        $this->getSlim()->add(new JsonBodyParserMiddleware());
     }
 
     /**
@@ -77,7 +121,7 @@ class Keenwork
      *
      * @param string $key
      */
-    public function getConfig(string $key = null) {
+    public function getConfigHttp(string $key = null) {
         if (!$key) {
     	    return self::$config;
         } else if (array_key_exists($key, self::$config)) {
@@ -94,24 +138,8 @@ class Keenwork
      */
     public function init (callable $init)
     {
-        self::$init = $init;
+        $this->init = $init;
     }
-
-    /* 	TODO
-    	@@@ Error: multi workers init in one php file are not support @@@
-		@@@ See http://doc.workerman.net/faq/multi-woker-for-windows.html @@@
-	*/
-	// TODO Return Job ID
-	/*
-		Windows Hack
-        Timer::add(INTERVAL,
-        function() use ($app, $logger) {
-            $id = rand(1, $app->getConfig('workers'));
-            if ($id == 1) 
-                Job::run();            
-        });
-
-	*/
 
     /**
      * Add periodic $job executed every $interval of seconds
@@ -145,7 +173,7 @@ class Keenwork
      */
     public function __call (string $name, array $args)
     {
-        return self::$app->$name(...$args);
+        return $this->slim->$name(...$args);
     }
 
     /**
@@ -154,7 +182,7 @@ class Keenwork
      * @param WorkermanRequest $request
      * @return WorkermanResponse
      */
-    private static function _handle(WorkermanRequest $request)
+    private function _handle(WorkermanRequest $request)
     {
     	if ($request->queryString()) {
             parse_str($request->queryString(), $queryParams);
@@ -174,7 +202,7 @@ class Keenwork
             $queryParams
         );
 
-        $ret = self::$app->handle($req);
+        $ret = $this->getSlim()->handle($req);
 
         $headers = $ret->getHeaders();
 
@@ -199,8 +227,8 @@ class Keenwork
     public function run()
     {
         // Write worker output to log file if exists
-        if (self::$logger) {
-            foreach(self::$logger->getHandlers() as $handler) {
+        if (null !== $this->getLogger()) {
+            foreach($this->getLogger()->getHandlers() as $handler) {
                 if ($handler->getUrl()) {
                     Worker::$stdoutFile = $handler->getUrl();
                     break;
@@ -209,66 +237,207 @@ class Keenwork
         }
 
         // Init HTTP workers
-        $worker = new Worker('http://' . self::$host . ':' . self::$port);
-        $worker->count = self::$config['workers'];
+        $worker = new Worker('http://' . $this->hostHttp . ':' . $this->portHttp);
+        $worker->count = $this->workersHttp;
         $worker->name = 'Keenwork v' . self::VERSION;
 
-        if (self::$init) {
-            $worker->onWorkerStart = self::$init;
+        if ($this->init) {
+            $worker->onWorkerStart = $this->init;
         }
-//
-//        // TODO Add timers to the single main worker for Windows hosts!
-//        // FIXME We should use real free random port not fixed 65432
-//        // Init JOB workers
+
+        // FIXME We should use real free random port not fixed 65432
+        // Init JOB workers
 //        foreach (self::$jobs as $job) {
-//	        $w = new Worker('text://' . self::$host . ':' . 65432);
+//	        $w = new Worker('text://' . $this->host . ':' . 65432);
 //    	    $w->count = $job['workers'];
 //        	$w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
 //        	$w->onWorkerStart = function() use ($job) {
-//      	        if (self::$init)
-//					call_user_func(self::$init);
+//      	        if ($this->init)
+//					call_user_func($this->init);
 //            	Timer::add($job['interval'], $job['job']);
 //        	};
 //        }
-//
-//        // Main Loop
-//        $worker->onMessage = static function($connection, WorkermanRequest $request)
-//        {
-//            try {
-//                $response = self::_handle($request);
-//                $connection->send($response);
-//            } catch(HttpNotFoundException $error) {
-//                $connection->send(new WorkermanResponse(404));
-//            } catch(\Throwable $error) {
-//                if (self::$debug) {
-//                    echo "\n[ERR] " . $error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage();
-//                }
-//                if (self::$logger) {
-//                    self::$logger->error($error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage());
-//                }
-//                $connection->send(new WorkermanResponse(500));
-//            }
-//        };
-//
-//       	// Suppress Workerman startup message
-//        global $argv;
-//        $argv[] = '-q';
-//
-//        // Write Keenwork startup message to log file and show on screen
-//        $jobsInfo = count(self::$jobs) ? ' / ' . count(self::$jobs) . ' jobs' : '';
-//      	$hello = $worker->name . ' [' . self::$config['workers'] . ' workers' . $jobsInfo . '] ready on http://' . self::$host . ':' . self::$port;
-//       	if (self::$logger) {
-//            self::$logger->info($hello);
-//       	}
-//
-//        if (DIRECTORY_SEPARATOR === '\\') {
-//            echo "\n-------------------------------------------------------------------------";
-//            echo "\nServer               Listen                              Workers   Status";
-//            echo "\n-------------------------------------------------------------------------\n";
-//        } else {
-//            echo $hello . "\n";
-//        }
+
+        //TODO: think
+        /** Main Loop */
+        $worker->onMessage = function($connection, WorkermanRequest $request)
+        {
+            try {
+                $response = $this->_handle($request);
+                $connection->send($response);
+            } catch(HttpNotFoundException $error) {
+                $connection->send(new WorkermanResponse(404));
+            } catch(\Throwable $error) {
+                if ($this->isDebug()) {
+                    echo "\n[ERR] " . $error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage();
+                }
+                if (null !== $this->getLogger()) {
+                    $this->getLogger()->error($error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage());
+                }
+                $connection->send(new WorkermanResponse(500));
+            }
+        };
 
         Worker::runAll();
+    }
+
+    /**
+     * @return App
+     */
+    public function getSlim(): App
+    {
+        return $this->slim;
+    }
+
+    /**
+     * @return string
+     */
+    public function getHostHttp(): string
+    {
+        return $this->hostHttp;
+    }
+
+    /**
+     * @return int
+     */
+    public function getPortHttp(): int
+    {
+        return $this->portHttp;
+    }
+
+    /**
+     * @return bool
+     */
+    public function isDebug(): bool
+    {
+        return $this->debug;
+    }
+
+    /**
+     * @return LoggerInterface|null
+     */
+    public function getLogger(): ?LoggerInterface
+    {
+        return $this->logger;
+    }
+
+    /**
+     * @return ContainerInterface|null
+     */
+    public function getContainer(): ?ContainerInterface
+    {
+        return $this->container;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getInit(): callable
+    {
+        return $this->init;
+    }
+
+    /**
+     * @return int
+     */
+    public function getWorkersHttp(): int
+    {
+        return $this->workersHttp;
+    }
+
+    /**
+     * @return array
+     */
+    public static function getConfig(): array
+    {
+        return self::$config;
+    }
+
+    /**
+     * @return array
+     */
+    public static function getJobs(): array
+    {
+        return self::$jobs;
+    }
+
+    /**
+     * @param App $slim
+     */
+    private function setSlim(App $slim): void
+    {
+        $this->slim = $slim;
+    }
+
+    /**
+     * @param string $host
+     */
+    private function setHost(string $host): void
+    {
+        $this->hostHttp = $host;
+    }
+
+    /**
+     * @param int $port
+     */
+    private function setPort(int $port): void
+    {
+        $this->portHttp = $port;
+    }
+
+    /**
+     * @param bool $debug
+     */
+    private function setDebug(bool $debug): void
+    {
+        $this->debug = $debug;
+    }
+
+    /**
+     * @param LoggerInterface|null $logger
+     */
+    private function setLogger(?LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
+    }
+
+    /**
+     * @param ContainerInterface|null $container
+     */
+    private function setContainer(?ContainerInterface $container): void
+    {
+        $this->container = $container;
+    }
+
+    /**
+     * @param mixed $init
+     */
+    private function setInit($init): void
+    {
+        $this->init = $init;
+    }
+
+    /**
+     * @param int $workers
+     */
+    private function setWorkers(int $workers): void
+    {
+        $this->workersHttp = $workers;
+    }
+
+    /**
+     * @param array $config
+     */
+    private static function setConfig(array $config): void
+    {
+        self::$config = $config;
+    }
+
+    /**
+     * @param array $jobs
+     */
+    private static function setJobs(array $jobs): void
+    {
+        self::$jobs = $jobs;
     }
 }

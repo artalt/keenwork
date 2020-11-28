@@ -1,10 +1,10 @@
 {
-    "name": "snegprog/keenman",
+    "name": "snegprog/keenwork",
     "description": "Modern PHP framework for building REST APIs",
     "type": "library",
   	"license": "MIT",
     "keywords": ["php", "api", "framework", "rest-api", "slimphp", "workerman"],
-    "homepage": "https://github.com/snegprog/keenman",
+    "homepage": "https://github.com/snegprog/keenwork",
     "authors": [{
    	    "name": "Serge Negrey",
         "email": "snegprog@gmail.com"

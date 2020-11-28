@@ -19,7 +19,7 @@ Keenwork allows you natively use all the methods of Slim: http://www.slimframewo
 It is recommended that you use [Composer](https://getcomposer.org/) to install Comet.
 
 ```bash
-$ composer require snegprog/comet-sneg
+$ composer require snegprog/keenwork
 ```
 
 This will install framework itself and all required dependencies. Comet requires PHP 7.1 or newer.

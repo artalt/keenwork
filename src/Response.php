@@ -82,7 +82,7 @@ class Response extends GuzzleResponse implements ResponseInterface
 
 
     /** @var int */
-    private $statusCode = 200;
+    private int $statusCode = 200;
 
     /** @var string */
     private $reasonPhrase = '';
@@ -184,12 +184,11 @@ class Response extends GuzzleResponse implements ResponseInterface
      * NB! We expect that 'Content-Type' => 'text/plain' will be set up
      * by Keenwork at the last step of the response emitting if needed
      *
-     * @param $body Response body as array, object or string
-     * @param null $status Optional HTTP Status
-     * @param null $headers Optional HTTP Headers
+     * @param array|object|string $body Response body as array, object or string
+     * @param int $status Optional HTTP Status
      * @return Response Keenwork PSR-7 HTTP Response
      */
-    public function with($body, $status = null)
+    public function with($body, int $status = null): Response
     {
         $new = clone $this;
 
@@ -216,10 +215,10 @@ class Response extends GuzzleResponse implements ResponseInterface
     /**
      * Set ALL responce headers at once
      *
-     * @param $headers
+     * @param array<string, string> $headers
      * @return Response
      */
-    public function withHeaders($headers)
+    public function withHeaders($headers): Response
     {
         $new = clone $this;
         $new->setHeaders($headers);
@@ -245,7 +244,10 @@ class Response extends GuzzleResponse implements ResponseInterface
         return $new;
     }
 
-    public function getStatusCode()
+    /**
+     * @return int
+     */
+    public function getStatusCode(): int
     {
         return $this->statusCode;
     }

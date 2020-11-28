@@ -110,7 +110,7 @@ class Keenwork
 
     /**
      * Init http server
-     * @param array|null $config
+     * @param array $config
      */
     public function initHttp(array $config = []): void
     {
@@ -292,7 +292,7 @@ class Keenwork
     {
         // Write worker output to log file if exists
         if (null !== $this->getLogger()) {
-            foreach ($this->getLogger()->getHandlers() as $handler) {
+            foreach ($this->getLogger()->getHandlers() as $handler) { // TODO: Call to an undefined method Psr\Log\LoggerInterface::getHandlers().
                 if ($handler->getUrl()) {
                     Worker::$stdoutFile = $handler->getUrl();
                     break;

@@ -3,7 +3,7 @@
     "description": "Modern PHP framework for building REST APIs",
     "type": "library",
   	"license": "MIT",
-    "keywords": ["php", "api", "framework", "rest-api", "slimphp", "workerman", "psr-7", "psr-15", "psr-17", "psr-18"],
+    "keywords": ["php", "api", "framework", "rest-api", "slimphp", "workerman"],
     "homepage": "https://github.com/snegprog/keenman",
     "authors": [{
    	    "name": "Serge Negrey",

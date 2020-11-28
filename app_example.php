@@ -57,34 +57,32 @@ $app->getSlim()->get('/controller', 'Keenwork\Controller\MyController:myMethod')
 /**
  * example: Simple route GET Request
  */
-$app->getSlim()->get('/simple', function (Request $request, Response $response) use ($app): ResponseInterface
-{
+$app->getSlim()->get('/simple', function (Request $request, Response $response) use ($app): ResponseInterface {
     return $response
         ->with($app->getConfigsHttp());
-
 });
 
-$wsWorker = new Worker('websocket://0.0.0.0:2346');
-$wsWorker->count = ((int) shell_exec('nproc')*2);
+//$wsWorker = new Worker('websocket://0.0.0.0:2346');
+//$wsWorker->count = ((int) shell_exec('nproc')*2);
+//
+//// Emitted when new connection come
+//$wsWorker->onConnect = function ($connection) {
+//    $connection->send('connected');
+//
+//    Timer::add(1, function () use ($connection) {
+//        $connection->send('timer');
+//    });
+//};
+//
+//// Emitted when data received
+//$wsWorker->onMessage = function ($connection, $data) {
+//    // Send hello $data
+//    $connection->send('Hello ' . $data);
+//};
+//
+//// Emitted when connection closed
+//$wsWorker->onClose = function ($connection) {
+//    echo "Connection closed\n";
+//};
 
-// Emitted when new connection come
-$wsWorker->onConnect = function ($connection) {
-    $connection->send('connected');
-
-    Timer::add(1, function () use ($connection) {
-        $connection->send('timer');
-    });
-};
-
-// Emitted when data received
-$wsWorker->onMessage = function ($connection, $data) {
-    // Send hello $data
-    $connection->send('Hello ' . $data);
-};
-
-// Emitted when connection closed
-$wsWorker->onClose = function ($connection) {
-    echo "Connection closed\n";
-};
-
-$app->runAll();
+Keenwork::runAll($app);

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Keenwork;
@@ -95,8 +96,8 @@ class Keenwork
     public function __construct(LoggerInterface $logger = null)
     {
         $this->slim = null;
-        $this->hostHttp = '';
-        $this->portHttp = 0;
+        $this->hostHttp = '0.0.0.0';
+        $this->portHttp = 8080;
         $this->debugHttp = false;
         $this->logger = $logger;
         $this->containerHttp = null;
@@ -113,12 +114,14 @@ class Keenwork
      */
     public function initHttp(array $config = []): void
     {
-        if($this->isDataInitHttp()) {
+        if ($this->isDataInitHttp()) {
             echo "You can't initialize data http twice\n";
+
             return;
         }
-        if($this->isWorkingHttp()) {
+        if ($this->isWorkingHttp()) {
             echo "You can't initialize data http while the server is running\n";
+
             return;
         }
 
@@ -132,7 +135,7 @@ class Keenwork
         $validation->validate();
         if ($validation->fails()) {
             $stringErrors = '[';
-            foreach($validation->errors()->toArray() as $key => $error) {
+            foreach ($validation->errors()->toArray() as $key => $error) {
                 $stringErrors .= ' ' .$key . ' ';
             }
             $stringErrors .= ']';
@@ -190,75 +193,38 @@ class Keenwork
      * @param int      $workers
      * @param string   $name
      */
-    public function addJob(int $interval, callable $job, array $params = [], callable $init = null, string $name = '', int $workers = 1) 
+    public function addJob(int $interval, callable $job, array $params = [], callable $init = null, string $name = '', int $workers = 1)
     {
-    	self::$jobs[] = [ 
-    		'interval' => $interval, 
-    		'job'      => $job, 
-    		'params'   => $params,
-    		'init'     => $init,     		 
-    		'name'     => $name, 
-    		'workers'  => $workers,
-    	];
+        self::$jobs[] = [
+            'interval' => $interval,
+            'job'      => $job,
+            'params'   => $params,
+            'init'     => $init,
+            'name'     => $name,
+            'workers'  => $workers,
+        ];
     }
 
     /**
-     * Run Keenwork server
+     * Run all servers Keenwork
      */
-    public function runAll()
+    public static function runAll(Keenwork ...$keenworks): void
     {
-        // Write worker output to log file if exists
-        if (null !== $this->getLogger()) {
-            foreach($this->getLogger()->getHandlers() as $handler) {
-                if ($handler->getUrl()) {
-                    Worker::$stdoutFile = $handler->getUrl();
-                    break;
-                }
+        $start = true;
+        try {
+            foreach ($keenworks as $keenwork) {
+                $keenwork->initRun();
             }
+        } catch (\Throwable $e) {
+            echo $e->getMessage() . "\n";
+            $start = false;
         }
 
-        // FIXME We should use real free random port not fixed 65432
-        // Init JOB workers
-//        foreach (self::$jobs as $job) {
-//	        $w = new Worker('text://' . $this->host . ':' . 65432);
-//    	    $w->count = $job['workers'];
-//        	$w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
-//        	$w->onWorkerStart = function() use ($job) {
-//      	        if ($this->init)
-//					call_user_func($this->init);
-//            	Timer::add($job['interval'], $job['job']);
-//        	};
-//        }
+        if (!$start) {
+            echo "ERROR: Failed to start server\n";
 
-        // Init HTTP workers
-        $worker = new Worker('http://' . $this->hostHttp . ':' . $this->portHttp);
-        $worker->count = $this->workersHttp;
-        $worker->name = 'Keenwork v' . self::VERSION;
-
-        if ($this->callableAtStartHttp) {
-            $worker->onWorkerStart = $this->callableAtStartHttp;
+            return;
         }
-
-        /** Main Http */
-        $worker->onMessage = function($connection, WorkermanRequest $request)
-        {
-            try {
-                $response = $this->_handle($request);
-                $connection->send($response);
-            } catch(HttpNotFoundException $error) {
-                $connection->send(new WorkermanResponse(404));
-            } catch(\Throwable $error) {
-                if ($this->isDebugHttp()) {
-                    echo "\n[ERR] " . $error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage();
-                }
-                if (null !== $this->getLogger()) {
-                    $this->getLogger()->error($error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage());
-                }
-                $connection->send(new WorkermanResponse(500));
-            }
-        };
-
-        $this->setWorkingHttp(true);
 
         Worker::runAll();
     }
@@ -320,12 +286,72 @@ class Keenwork
     }
 
     /**
+     * Startup initialization
+     */
+    private function initRun()
+    {
+        // Write worker output to log file if exists
+        if (null !== $this->getLogger()) {
+            foreach ($this->getLogger()->getHandlers() as $handler) {
+                if ($handler->getUrl()) {
+                    Worker::$stdoutFile = $handler->getUrl();
+                    break;
+                }
+            }
+        }
+
+        // FIXME We should use real free random port not fixed 65432
+        // Init JOB workers
+//        foreach (self::$jobs as $job) {
+        //	        $w = new Worker('text://' . $this->host . ':' . 65432);
+//    	    $w->count = $job['workers'];
+//        	$w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
+//        	$w->onWorkerStart = function() use ($job) {
+//      	        if ($this->init)
+        //					call_user_func($this->init);
+//            	Timer::add($job['interval'], $job['job']);
+//        	};
+//        }
+
+        // Init HTTP workers
+        $worker = new Worker('http://' . $this->hostHttp . ':' . $this->portHttp);
+        $worker->count = $this->workersHttp;
+        $worker->name = 'Keenwork v' . self::VERSION;
+
+        if ($this->callableAtStartHttp) {
+            $worker->onWorkerStart = $this->callableAtStartHttp;
+        }
+
+        /** Main Http */
+        $worker->onMessage = function ($connection, WorkermanRequest $request) {
+            try {
+                $response = $this->_handle($request);
+                $connection->send($response);
+            } catch (HttpNotFoundException $error) {
+                $connection->send(new WorkermanResponse(Response::HTTP_NOT_FOUND));
+            } catch (\Throwable $error) {
+                if ($this->isDebugHttp()) {
+                    echo "\n[ERR] " . $error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage();
+                }
+
+                if (null !== $this->getLogger()) {
+                    $this->getLogger()->error($error->getFile() . ':' . $error->getLine() . ' >> ' . $error->getMessage());
+                }
+
+                $connection->send(new WorkermanResponse(Response::HTTP_INTERNAL_SERVER_ERROR));
+            }
+        };
+
+        $this->setWorkingHttp(true);
+    }
+
+    /**
      * Handle Workerman request to return Workerman response
      *
      * @param WorkermanRequest $request
      * @return WorkermanResponse
      */
-    private function _handle(WorkermanRequest $request)
+    private function _handle(WorkermanRequest $request): WorkermanResponse
     {
         if ($request->queryString()) {
             parse_str($request->queryString(), $queryParams);
@@ -467,6 +493,4 @@ class Keenwork
     {
         $this->dataInitHttp = $dataInitHttp;
     }
-
-
 }

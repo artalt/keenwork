@@ -7,51 +7,18 @@ namespace Keenwork;
 use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
-use Psr\Http\Message\StreamInterface;
-
-// Fast PSR-7 ServerRequest implementation
 
 class Request extends GuzzleRequest implements ServerRequestInterface
 {
     /**
-     * @param string                               $method       HTTP method
-     * @param string|UriInterface                  $uri          URI
-     * @param array                                $headers      Request headers
-     * @param string|null|resource|StreamInterface $body         Request body
-     * @param string                               $version      Protocol version
-     * @param array                                $serverParams Typically the $_SERVER superglobal
-     * @param array                                $cookies      Request cookies
-     * @param array                                $files        Request files
-     * @param array                                $query        Query Params
+     * @var array
      */
-    public function __construct(
-        $method,
-        $uri,
-        array $headers = [],
-        $body = null,
-        $version = '1.1',
-        array $serverParams = [],
-        array $cookies = [],
-        array $files = [],
-        array $query = []
-    ) {
-        $this->serverParams = $serverParams;
-        $this->cookieParams = $cookies;
-        $this->uploadedFiles = $files;
-        $this->queryParams = $query;
-
-        parent::__construct($method, $uri, $headers, $body, $version);
-    }
+    private array $attributes;
 
     /**
      * @var array
      */
-    private $attributes = [];
-
-    /**
-     * @var array
-     */
-    private $cookieParams = [];
+    private array $cookieParams;
 
     /**
      * @var null|array|object
@@ -61,36 +28,54 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     /**
      * @var array
      */
-    private $queryParams = [];
+    private array $queryParams;
 
     /**
      * @var array
      */
-    private $serverParams;
+    private array $serverParams;
 
     /**
      * @var array
      */
-    private $uploadedFiles = [];
+    private array $uploadedFiles;
 
-    private static function extractHostAndPortFromAuthority($authority)
-    {
-        $uri = 'http://'.$authority;
-        $parts = parse_url($uri);
-        if (false === $parts) {
-            return [null, null];
-        }
+    /**
+     * @param string                               $method       HTTP method
+     * @param string|UriInterface                  $uri          URI
+     * @param array                                $headers      Request headers
+     * @param string                               $body         Request body
+     * @param string                               $version      Protocol version
+     * @param array                                $serverParams Typically the $_SERVER superglobal
+     * @param array                                $cookies      Request cookies
+     * @param array                                $files        Request files
+     * @param array                                $query        Query Params
+     */
+    public function __construct(
+        string $method,
+        $uri,
+        array $headers,
+        string $body,
+        string $version,
+        array $serverParams,
+        array $cookies,
+        array $files,
+        array $query
+    ) {
+        $this->serverParams = $serverParams;
+        $this->cookieParams = $cookies;
+        $this->uploadedFiles = $files;
+        $this->queryParams = $query;
+        $this->attributes = [];
+        $this->parsedBody = null;
 
-        $host = isset($parts['host']) ? $parts['host'] : null;
-        $port = isset($parts['port']) ? $parts['port'] : null;
-
-        return [$host, $port];
+        parent::__construct($method, $uri, $headers, $body, $version);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getServerParams()
+    public function getServerParams(): array
     {
         return $this->serverParams;
     }
@@ -98,7 +83,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     /**
      * {@inheritdoc}
      */
-    public function getUploadedFiles()
+    public function getUploadedFiles(): array
     {
         return $this->uploadedFiles;
     }
@@ -106,18 +91,15 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     /**
      * {@inheritdoc}
      */
-    public function withUploadedFiles(array $uploadedFiles)
+    public function withUploadedFiles(array $uploadedFiles): Request
     {
-        $new = clone $this;
-        $new->uploadedFiles = $uploadedFiles;
-
-        return $new;
+        return (clone $this)->setUploadedFiles($uploadedFiles);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getCookieParams()
+    public function getCookieParams(): array
     {
         return $this->cookieParams;
     }
@@ -125,18 +107,15 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     /**
      * {@inheritdoc}
      */
-    public function withCookieParams(array $cookies)
+    public function withCookieParams(array $cookies): Request
     {
-        $new = clone $this;
-        $new->cookieParams = $cookies;
-
-        return $new;
+        return (clone $this)->setCookieParams($cookies);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getQueryParams()
+    public function getQueryParams(): array
     {
         return $this->queryParams;
     }
@@ -144,12 +123,9 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     /**
      * {@inheritdoc}
      */
-    public function withQueryParams(array $query)
+    public function withQueryParams(array $query): Request
     {
-        $new = clone $this;
-        $new->queryParams = $query;
-
-        return $new;
+        return (clone $this)->setQueryParams($query);
     }
 
     /**
@@ -163,18 +139,15 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     /**
      * {@inheritdoc}
      */
-    public function withParsedBody($data)
+    public function withParsedBody($data): Request
     {
-        $new = clone $this;
-        $new->parsedBody = $data;
-
-        return $new;
+        return (clone $this)->setParsedBody($data);
     }
 
     /**
      * {@inheritdoc}
      */
-    public function getAttributes()
+    public function getAttributes(): array
     {
         return $this->attributes;
     }
@@ -184,36 +157,115 @@ class Request extends GuzzleRequest implements ServerRequestInterface
      */
     public function getAttribute($attribute, $default = null)
     {
-        if (false === array_key_exists($attribute, $this->attributes)) {
+        if (!isset($this->getAttributes()[$attribute])) {
             return $default;
         }
 
-        return $this->attributes[$attribute];
+        return $this->getAttributes()[$attribute];
     }
 
     /**
      * {@inheritdoc}
      */
-    public function withAttribute($attribute, $value)
+    public function withAttribute($attribute, $value): Request
     {
-        $new = clone $this;
-        $new->attributes[$attribute] = $value;
+        if (!is_string($attribute)) {
+            throw new \InvalidArgumentException('ERROR: Request::withAttribute(): invalid argument [attribute]');
+        }
 
-        return $new;
+        return (clone $this)->addAttribute($attribute, $value);
     }
-
     /**
      * {@inheritdoc}
      */
-    public function withoutAttribute($attribute)
+    public function withoutAttribute($attribute): self
     {
-        if (false === array_key_exists($attribute, $this->attributes)) {
+        if (!isset($this->getAttributes()[$attribute])) {
             return $this;
         }
 
-        $new = clone $this;
-        unset($new->attributes[$attribute]);
+        return (clone $this)->unsetAttribute($attribute);
+    }
 
-        return $new;
+    /**
+     * @param array $attributes
+     */
+    private function setAttributes(array $attributes): self
+    {
+        $this->attributes = $attributes;
+
+        return $this;
+    }
+
+    /**
+     * @param array $cookieParams
+     */
+    private function setCookieParams(array $cookieParams): self
+    {
+        $this->cookieParams = $cookieParams;
+
+        return $this;
+    }
+
+    /**
+     * @param array|object|null $parsedBody
+     */
+    private function setParsedBody($parsedBody): self
+    {
+        $this->parsedBody = $parsedBody;
+
+        return $this;
+    }
+
+    /**
+     * @param array $queryParams
+     */
+    private function setQueryParams(array $queryParams): self
+    {
+        $this->queryParams = $queryParams;
+
+        return $this;
+    }
+
+    /**
+     * @param array $serverParams
+     */
+    private function setServerParams(array $serverParams): self
+    {
+        $this->serverParams = $serverParams;
+
+        return $this;
+    }
+
+    /**
+     * @param array $uploadedFiles
+     */
+    private function setUploadedFiles(array $uploadedFiles): self
+    {
+        $this->uploadedFiles = $uploadedFiles;
+
+        return $this;
+    }
+
+    /**
+     * Add attribute to this
+     * @param $attribute
+     * @param $value
+     * @return $this
+     */
+    private function addAttribute($attribute, $value): self
+    {
+        $this->attributes[$attribute] = $value;
+
+        return $this;
+    }
+
+    private function unsetAttribute(string $name): self
+    {
+        if (isset($this->attributes[$name])) {
+            unset($this->attributes[$name]);
+        }
+
+        return $this;
     }
 }

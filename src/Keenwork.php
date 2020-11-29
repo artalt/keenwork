@@ -25,7 +25,7 @@ class Keenwork
     /**
      * Version Keenwork
      */
-    public const VERSION = '0.2.0';
+    public const VERSION = '0.2.2';
 
     /**
      * WEB Slim App
@@ -362,12 +362,12 @@ class Keenwork
         $req = new Request(
             $request->method(),
             $request->uri(),
-            $request->header(),
-            $request->rawBody(),
+            (array)$request->header(),
+            (string)$request->rawBody(),
             '1.1',
             $_SERVER,
-            $request->cookie(),
-            $request->file(),
+            (array)$request->cookie(),
+            (array)$request->file(),
             $queryParams
         );
 

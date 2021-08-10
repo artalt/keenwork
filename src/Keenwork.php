@@ -23,7 +23,7 @@ class Keenwork
     /**
      * Version Keenwork
      */
-    public const VERSION = '0.2.2';
+    public const VERSION = '0.3.1';
 
     /**
      * WEB Slim App

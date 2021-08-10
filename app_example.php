@@ -62,6 +62,15 @@ $app->getSlim()->get('/simple', function (Request $request, Response $response) 
         ->with($app->getConfigsHttp());
 });
 
+$f = function () use ($app) {
+    echo "f\n";
+};
+$f1 = function () use ($app) {
+    echo "f1\n";
+};
+$app->addJob(2, $f);
+$app->addJob(1, $f1);
+
 //$wsWorker = new Worker('websocket://0.0.0.0:2346');
 //$wsWorker->count = ((int) shell_exec('nproc')*2);
 //

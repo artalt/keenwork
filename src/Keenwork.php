@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Keenwork;
 
-use Keenwork\Request;
-use Keenwork\Response;
 use Keenwork\Factory\CometPsr17Factory;
 use Keenwork\Middleware\JsonBodyParserMiddleware;
 use Psr\Container\ContainerInterface;
@@ -87,8 +85,15 @@ class Keenwork
      */
     private bool $dataInitHttp;
 
-    //TODO: think
+    /**
+     * @var array - array jobs
+     */
     private static $jobs = [];
+
+    /**
+     * @var array - array jobs ID
+     */
+    private array $timerIDs;
 
     /**
      * Keenwork constructor.
@@ -105,8 +110,8 @@ class Keenwork
         $this->workersHttp = 0;
         $this->workingHttp = false;
         $this->dataInitHttp = false;
+        $this->timerIDs = [];
     }
-
 
     /**
      * Init http server
@@ -285,6 +290,11 @@ class Keenwork
         return $this->slim;
     }
 
+    public function getTimerIDs(): array
+    {
+        return $this->timerIDs;
+    }
+
     /**
      * Startup initialization
      */
@@ -300,18 +310,15 @@ class Keenwork
             }
         }
 
-        // FIXME We should use real free random port not fixed 65432
         // Init JOB workers
-//        foreach (self::$jobs as $job) {
-        //	        $w = new Worker('text://' . $this->host . ':' . 65432);
-//    	    $w->count = $job['workers'];
-//        	$w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
-//        	$w->onWorkerStart = function() use ($job) {
-//      	        if ($this->init)
-        //					call_user_func($this->init);
-//            	Timer::add($job['interval'], $job['job']);
-//        	};
-//        }
+        foreach (self::getJobs() as $job) {
+            $w = new Worker();
+            $w->count = $job['workers'];
+            $w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
+            $w->onWorkerStart = function () use ($job) {
+                $this->addTimerID(Timer::add($job['interval'], $job['job']));
+            };
+        }
 
         // Init HTTP workers
         $worker = new Worker('http://' . $this->hostHttp . ':' . $this->portHttp);
@@ -393,41 +400,51 @@ class Keenwork
     /**
      * @param App $slim
      */
-    private function setSlim(App $slim): void
+    private function setSlim(App $slim): self
     {
         $this->slim = $slim;
+
+        return $this;
     }
 
     /**
      * @param string $host
      */
-    private function setHost(string $host): void
+    private function setHost(string $host): self
     {
         $this->hostHttp = $host;
+
+        return $this;
     }
 
     /**
      * @param int $port
      */
-    private function setPort(int $port): void
+    private function setPort(int $port): self
     {
         $this->portHttp = $port;
+
+        return $this;
     }
 
     /**
      * @param bool $debug
      */
-    private function setDebugHttp(bool $debug): void
+    private function setDebugHttp(bool $debug): self
     {
         $this->debugHttp = $debug;
+
+        return $this;
     }
 
     /**
      * @param LoggerInterface|null $logger
      */
-    private function setLogger(?LoggerInterface $logger): void
+    private function setLogger(?LoggerInterface $logger): self
     {
         $this->logger = $logger;
+
+        return $this;
     }
 
     /**
@@ -441,17 +458,21 @@ class Keenwork
     /**
      * @param ContainerInterface $container
      */
-    private function setContainerHttp(ContainerInterface $container): void
+    private function setContainerHttp(ContainerInterface $container): self
     {
         $this->containerHttp = $container;
+
+        return $this;
     }
 
     /**
      * @param int $workers
      */
-    private function setWorkersHttp(int $workers): void
+    private function setWorkersHttp(int $workers): self
     {
         $this->workersHttp = $workers;
+
+        return $this;
     }
 
     /**
@@ -473,9 +494,11 @@ class Keenwork
     /**
      * @param bool $workingHttp
      */
-    private function setWorkingHttp(bool $workingHttp): void
+    private function setWorkingHttp(bool $workingHttp): self
     {
         $this->workingHttp = $workingHttp;
+
+        return $this;
     }
 
     /**
@@ -489,8 +512,22 @@ class Keenwork
     /**
      * @param bool $dataInitHttp
      */
-    private function setDataInitHttp(bool $dataInitHttp): void
+    private function setDataInitHttp(bool $dataInitHttp): self
     {
         $this->dataInitHttp = $dataInitHttp;
+
+        return $this;
+    }
+
+    /**
+     * Add timers ID
+     * @param int $timerID - ID timer
+     * @return $this
+     */
+    private function addTimerID(int $timerID): self
+    {
+        $this->timerIDs[$timerID] = $timerID;
+
+        return $this;
     }
 }

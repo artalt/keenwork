@@ -83,17 +83,17 @@ class Response extends GuzzleResponse implements ResponseInterface
 
     /**
      * @param int                                  $status  Status code
-     * @param array                                $headers Response headers
+     * @param array<string, string>                $headers Response headers
      * @param string|null|resource|StreamInterface $body    Response body
      * @param string                               $version Protocol version
-     * @param string|null                          $reason  Reason phrase
+     * @param string                               $reason  Reason phrase
      */
     public function __construct(
-        $status = 200,
+        int $status = 200,
         array $headers = [],
         $body = null,
-        $version = '1.1',
-        $reason = null
+        string $version = '1.1',
+        string $reason = ''
     ) {
         parent::__construct($status, $headers, $body, $version, $reason);
     }
@@ -103,7 +103,7 @@ class Response extends GuzzleResponse implements ResponseInterface
      * NB! We expect that 'Content-Type' => 'text/plain' will be set up
      * by Keenwork at the last step of the response emitting if needed
      *
-     * @param array|object|string $body Response body as array, object or string
+     * @param array<string>|object|string $body Response body as array, object or string
      * @param int $status Optional HTTP Status
      * @return ResponseInterface Keenwork PSR-7 HTTP Response
      */

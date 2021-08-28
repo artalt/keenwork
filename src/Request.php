@@ -7,6 +7,7 @@ namespace Keenwork;
 use GuzzleHttp\Psr7\Request as GuzzleRequest;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
+use Psr\Http\Message\UploadedFileInterface;
 
 class Request extends GuzzleRequest implements ServerRequestInterface
 {
@@ -16,40 +17,41 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     private array $attributes;
 
     /**
-     * @var array
+     * @var array<int, string>
      */
     private array $cookieParams;
 
     /**
-     * @var null|array|object
+     * @var null|array<string>|object - The deserialized body parameters, if any.
+     *     These will typically be an array or object.
      */
     private $parsedBody;
 
     /**
-     * @var array
+     * @var array<string>
      */
     private array $queryParams;
 
     /**
-     * @var array
+     * @var array<string, string>
      */
     private array $serverParams;
 
     /**
-     * @var array
+     * @var UploadedFileInterface[]
      */
     private array $uploadedFiles;
 
     /**
-     * @param string                               $method       HTTP method
-     * @param string|UriInterface                  $uri          URI
-     * @param array                                $headers      Request headers
-     * @param string                               $body         Request body
-     * @param string                               $version      Protocol version
-     * @param array                                $serverParams Typically the $_SERVER superglobal
-     * @param array                                $cookies      Request cookies
-     * @param array                                $files        Request files
-     * @param array                                $query        Query Params
+     * @param string $method - HTTP method
+     * @param string|UriInterface $uri - URI
+     * @param array<int, string> $headers - Request headers
+     * @param string $body - Request body
+     * @param string $version - Protocol version
+     * @param array<string, string> $serverParams - Typically the $_SERVER superglobal
+     * @param array<int, string> $cookies Request cookies
+     * @param UploadedFileInterface[] $files Request files
+     * @param array<string> $query Query Params
      */
     public function __construct(
         string $method,
@@ -74,6 +76,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @return array<string, string>
      */
     public function getServerParams(): array
     {
@@ -82,6 +85,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @return UploadedFileInterface[] An array tree of UploadedFileInterface instances
      */
     public function getUploadedFiles(): array
     {
@@ -90,6 +94,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @param UploadedFileInterface[] $uploadedFiles An array tree of UploadedFileInterface instances.
      */
     public function withUploadedFiles(array $uploadedFiles): Request
     {
@@ -98,6 +103,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @return array<int, string>
      */
     public function getCookieParams(): array
     {
@@ -106,6 +112,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @param array<int, string> $cookies Array of key/value pairs representing cookies.
      */
     public function withCookieParams(array $cookies): Request
     {
@@ -114,6 +121,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @return array<string>
      */
     public function getQueryParams(): array
     {
@@ -122,6 +130,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @param array<string> $query - Array of query string arguments, typically from $_GET.
      */
     public function withQueryParams(array $query): Request
     {
@@ -130,6 +139,8 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @return null|array<string>|object The deserialized body parameters, if any.
+     *     These will typically be an array or object.
      */
     public function getParsedBody()
     {
@@ -138,6 +149,8 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @param null|array<string>|object $data - The deserialized body data. This will
+     *     typically be in an array or object.
      */
     public function withParsedBody($data): Request
     {
@@ -146,6 +159,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * {@inheritdoc}
+     * @return array<string, mixed>
      */
     public function getAttributes(): array
     {
@@ -188,7 +202,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     }
 
     /**
-     * @param array $attributes
+     * @param array<string, mixed> $attributes
      */
     private function setAttributes(array $attributes): self
     {
@@ -198,7 +212,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     }
 
     /**
-     * @param array $cookieParams
+     * @param array<int, string> $cookieParams
      */
     private function setCookieParams(array $cookieParams): self
     {
@@ -208,7 +222,8 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     }
 
     /**
-     * @param array|object|null $parsedBody
+     * @param array<string>|object|null $parsedBody - Десериализованные данные тела. Это будет
+     * обычно находится в массиве или объекте.
      */
     private function setParsedBody($parsedBody): self
     {
@@ -218,7 +233,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     }
 
     /**
-     * @param array $queryParams
+     * @param array<string> $queryParams
      */
     private function setQueryParams(array $queryParams): self
     {
@@ -228,17 +243,7 @@ class Request extends GuzzleRequest implements ServerRequestInterface
     }
 
     /**
-     * @param array $serverParams
-     */
-    private function setServerParams(array $serverParams): self
-    {
-        $this->serverParams = $serverParams;
-
-        return $this;
-    }
-
-    /**
-     * @param array $uploadedFiles
+     * @param UploadedFileInterface[] $uploadedFiles
      */
     private function setUploadedFiles(array $uploadedFiles): self
     {

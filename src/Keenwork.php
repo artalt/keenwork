@@ -88,12 +88,12 @@ class Keenwork
     private bool $dataInitHttp;
 
     /**
-     * @var array - array jobs
+     * @var array<int, array> - array jobs
      */
     private static $jobs = [];
 
     /**
-     * @var array - array jobs ID
+     * @var array<int, int>
      */
     private array $timerIDs;
 
@@ -117,9 +117,9 @@ class Keenwork
 
     /**
      * Init http server
-     * @param array $config
+     * @psalm-param  array{'debug': bool, 'host': string, 'port': int, 'workers': int} $config
      */
-    public function initHttp(array $config = []): void
+    public function initHttp(array $config): void
     {
         if ($this->isDataInitHttp()) {
             echo "You can't initialize data http twice\n";
@@ -168,7 +168,7 @@ class Keenwork
     /**
      * Return config param value or the config at whole
      *
-     * @return array - config http data
+     * @return array{'host': string, 'port': int, 'debug': bool, 'workers': int} - config http data
      */
     public function getConfigsHttp(): array
     {
@@ -195,13 +195,19 @@ class Keenwork
      *
      * @param int      $interval
      * @param callable $job
-     * @param array    $params
+     * @param array<int, array> $params
      * @param callable $init
      * @param int      $workers
      * @param string   $name
      */
-    public function addJob(int $interval, callable $job, array $params = [], callable $init = null, string $name = '', int $workers = 1)
-    {
+    public function addJob(
+        int $interval,
+        callable $job,
+        array $params = [],
+        callable $init = null,
+        string $name = '',
+        int $workers = 1
+    ): void {
         self::$jobs[] = [
             'interval' => $interval,
             'job'      => $job,
@@ -277,7 +283,7 @@ class Keenwork
     }
 
     /**
-     * @return array
+     * @return array<int, array>
      */
     public static function getJobs(): array
     {
@@ -292,15 +298,10 @@ class Keenwork
         return $this->slim;
     }
 
-    public function getTimerIDs(): array
-    {
-        return $this->timerIDs;
-    }
-
     /**
      * Startup initialization
      */
-    private function initRun()
+    private function initRun(): void
     {
         // Write worker output to log file if exists
         if (null !== $this->getLogger() && $this->getLogger() instanceof Logger) {
@@ -321,7 +322,7 @@ class Keenwork
             $w->count = $job['workers'];
             $w->name = 'Keenwork v' . self::VERSION .' [job] ' . $job['name'];
             $w->onWorkerStart = function () use ($job) {
-                $this->addTimerID(Timer::add($job['interval'], $job['job']));
+                $this->addtTimerID((int)Timer::add($job['interval'], $job['job']));
             };
         }
 
@@ -481,7 +482,7 @@ class Keenwork
     }
 
     /**
-     * @param array $jobs
+     * @phpstan-param array<int, array{'interval': int, 'job': callable, 'params': array}> $jobs
      */
     private static function setJobs(array $jobs): void
     {
@@ -525,11 +526,28 @@ class Keenwork
     }
 
     /**
-     * Add timers ID
-     * @param int $timerID - ID timer
+     * @return array<int, int>
+     */
+    private function getTimerIDs(): array
+    {
+        return $this->timerIDs;
+    }
+
+    /**
+     * @param array<int, int> $timerIDs
+     */
+    private function setTimerIDs(array $timerIDs): self
+    {
+        $this->timerIDs = $timerIDs;
+
+        return $this;
+    }
+
+    /**
+     * @param int $timerID
      * @return $this
      */
-    private function addTimerID(int $timerID): self
+    private function addtTimerID(int $timerID): self
     {
         $this->timerIDs[$timerID] = $timerID;
 

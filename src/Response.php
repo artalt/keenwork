@@ -122,6 +122,10 @@ class Response extends GuzzleResponse implements ResponseInterface
             }
         }
 
+        if (is_numeric($body)) {
+            $resultBody = (string)$body;
+        }
+
         $response = $this->withBody(Utils::streamFor($resultBody))->withStatus($status);
 
         return $response;

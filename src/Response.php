@@ -105,9 +105,9 @@ class Response extends GuzzleResponse implements ResponseInterface
      *
      * @param array<string>|object|string $body Response body as array, object or string
      * @param int $status Optional HTTP Status
-     * @return ResponseInterface Keenwork PSR-7 HTTP Response
+     * @return Response Keenwork PSR-7 HTTP Response
      */
-    public function with($body, int $status = 200): ResponseInterface
+    public function with($body, int $status = 200): Response
     {
         $resultBody = null;
 
@@ -129,5 +129,15 @@ class Response extends GuzzleResponse implements ResponseInterface
         $response = $this->withBody(Utils::streamFor($resultBody))->withStatus($status);
 
         return $response;
+    }
+
+    /**
+     * @param int $code
+     * @param string $reasonPhrase
+     * @return Response
+     */
+    public function withStatus($code, $reasonPhrase = ''): Response
+    {
+        return parent::withStatus($code, $reasonPhrase = '');
     }
 }

@@ -55,6 +55,11 @@ $app->getSlim()->setBasePath("/v1");
 $app->getSlim()->get('/controller', 'Keenwork\Controller\MyController:myMethod');
 
 /**
+ * example: Route POST Request to Controller
+ */
+$app->getSlim()->post('/controller', 'Keenwork\Controller\MyController:myMethodPost');
+
+/**
  * example: Simple route GET Request
  */
 $app->getSlim()->get('/simple', function (Request $request, Response $response) use ($app): ResponseInterface {
@@ -62,15 +67,15 @@ $app->getSlim()->get('/simple', function (Request $request, Response $response) 
         ->with($app->getConfigsHttp());
 });
 
-$f = function () use ($app) {
-    echo "f\n";
-};
-$f1 = function () use ($app) {
-    echo "f1\n";
-};
-$app->addJob(2, $f);
-$app->addJob(1, $f1);
-
+//$f = function () use ($app) {
+//    echo "f\n";
+//};
+//$f1 = function () use ($app) {
+//    echo "f1\n";
+//};
+//$app->addJob(2, $f);
+//$app->addJob(1, $f1);
+//
 //$wsWorker = new Worker('websocket://0.0.0.0:2346');
 //$wsWorker->count = ((int) shell_exec('nproc')*2);
 //

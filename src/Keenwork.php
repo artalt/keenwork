@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Keenwork;
 
-use Keenwork\Factory\CometPsr17Factory;
-use Keenwork\Middleware\JsonBodyParserMiddleware;
+use Keenwork\Factory\Psr17Factory;
+use Keenwork\Middleware\Middleware;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
-use Slim\Factory\AppFactory;
+use Slim\Factory\AppFactory as SlimFactory;
 use Slim\Factory\Psr17\Psr17FactoryProvider;
 use Slim\Exception\HttpNotFoundException;
 use Workerman\Worker;
@@ -23,7 +23,7 @@ class Keenwork
     /**
      * Version Keenwork
      */
-    public const VERSION = '0.3.1';
+    public const VERSION = '0.3.2';
 
     /**
      * WEB Slim App
@@ -155,10 +155,10 @@ class Keenwork
 
         $this->setContainerHttp(new Container());
         $provider = new Psr17FactoryProvider();
-        $provider::setFactories([CometPsr17Factory::class]);
-        AppFactory::setPsr17FactoryProvider($provider);
-        $this->setSlim(AppFactory::create(null, $this->getContainerHttp()));
-        $this->getSlim()->add(new JsonBodyParserMiddleware());
+        $provider::setFactories([Psr17Factory::class]);
+        SlimFactory::setPsr17FactoryProvider($provider);
+        $this->setSlim(SlimFactory::create(null, $this->getContainerHttp()));
+        $this->getSlim()->add(new Middleware());
 
         $this->setDataInitHttp(true);
     }

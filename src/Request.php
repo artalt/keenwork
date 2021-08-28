@@ -11,7 +11,7 @@ use Psr\Http\Message\UriInterface;
 class Request extends GuzzleRequest implements ServerRequestInterface
 {
     /**
-     * @var array
+     * @var array<string, mixed>
      */
     private array $attributes;
 
@@ -249,11 +249,11 @@ class Request extends GuzzleRequest implements ServerRequestInterface
 
     /**
      * Add attribute to this
-     * @param $attribute
-     * @param $value
+     * @param string $attribute
+     * @param mixed $value
      * @return $this
      */
-    private function addAttribute($attribute, $value): self
+    private function addAttribute(string $attribute, $value): self
     {
         $this->attributes[$attribute] = $value;
 

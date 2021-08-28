@@ -17,6 +17,8 @@ use Workerman\Protocols\Http\Response as WorkermanResponse;
 use Slim\App;
 use Rakit\Validation\Validator;
 use DI\Container;
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
 
 class Keenwork
 {
@@ -301,8 +303,11 @@ class Keenwork
     private function initRun()
     {
         // Write worker output to log file if exists
-        if (null !== $this->getLogger()) {
-            foreach ($this->getLogger()->getHandlers() as $handler) { // TODO: Call to an undefined method Psr\Log\LoggerInterface::getHandlers().
+        if (null !== $this->getLogger() && $this->getLogger() instanceof Logger) {
+            foreach ($this->getLogger()->getHandlers() as $handler) {
+                if (!($handler instanceof StreamHandler)) {
+                    continue;
+                }
                 if ($handler->getUrl()) {
                     Worker::$stdoutFile = $handler->getUrl();
                     break;
@@ -393,7 +398,7 @@ class Keenwork
         return new WorkermanResponse(
             $ret->getStatusCode(),
             $headers,
-            $ret->getBody()
+            (string)$ret->getBody()
         );
     }
 

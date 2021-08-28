@@ -119,7 +119,7 @@ class Response extends GuzzleResponse implements ResponseInterface
 
         if (is_array($body) || is_object($body)) {
             $resultBody = json_encode($body);
-            if ($body === false) {
+            if ($resultBody === false) {
                 throw new \RuntimeException(json_last_error_msg(), json_last_error());
             }
             $headers = ['Content-Type' => 'application/json; charset=utf-8'];

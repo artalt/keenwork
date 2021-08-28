@@ -109,12 +109,10 @@ class Response extends GuzzleResponse implements ResponseInterface
      */
     public function with($body, int $status = 200): ResponseInterface
     {
-        $headers = [];
         $resultBody = null;
 
         if (is_string($body)) {
             $resultBody = &$body;
-            $headers = ['Content-Type' => 'text/plain; charset=utf-8'];
         }
 
         if (is_array($body) || is_object($body)) {
@@ -122,11 +120,9 @@ class Response extends GuzzleResponse implements ResponseInterface
             if ($resultBody === false) {
                 throw new \RuntimeException(json_last_error_msg(), json_last_error());
             }
-            $headers = ['Content-Type' => 'application/json; charset=utf-8'];
         }
 
         $response = $this->withBody(Utils::streamFor($resultBody))->withStatus($status);
-        $response->setHeaders($headers);
 
         return $response;
     }

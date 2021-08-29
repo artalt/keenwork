@@ -10,15 +10,12 @@ require __DIR__.'/vendor/autoload.php';
 
 use Keenwork\Request;
 use Keenwork\Response;
-use Workerman\Worker;
 use Keenwork\Keenwork;
 use Psr\Http\Message\ResponseInterface;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
 use Monolog\Formatter\LineFormatter;
 use Workerman\Lib\Timer;
-
-Worker::$pidFile = __DIR__ . '/workerman.pid';
 
 $formatter = new LineFormatter("\n%datetime% >> %channel%:%level_name% >> %message%", "Y-m-d H:i:s");
 $stream = new StreamHandler(__DIR__ . '/log/app.log', Logger::INFO);

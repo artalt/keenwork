@@ -25,7 +25,7 @@ class Keenwork
     /**
      * Version Keenwork
      */
-    public const VERSION = '0.3.8';
+    public const VERSION = '0.3.9';
 
     /**
      * WEB Slim App
@@ -113,6 +113,7 @@ class Keenwork
         $this->workingHttp = false;
         $this->dataInitHttp = false;
         $this->timerIDs = [];
+        Worker::$pidFile = __DIR__ . '/../workerman.pid';
     }
 
     /**
@@ -291,10 +292,14 @@ class Keenwork
     }
 
     /**
-     * @return App|null
+     * @return App
      */
-    public function getSlim(): ?App
+    public function getSlim(): App
     {
+        if ($this->slim === null) {
+            throw new \UnderflowException("переменная slim не определена");
+        }
+
         return $this->slim;
     }
 
@@ -310,7 +315,7 @@ class Keenwork
                     continue;
                 }
                 if ($handler->getUrl()) {
-                    Worker::$stdoutFile = $handler->getUrl();
+                    Worker::$stdoutFile = (string)$handler->getUrl();
                     break;
                 }
             }
